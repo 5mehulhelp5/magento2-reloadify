@@ -22,6 +22,9 @@
                 <description>description</description>
                 <image>image</image>
             </attributes>
+            <privacy>
+                <exclude_customer_fields/>
+            </privacy>
             <restore_cart>
                 <url>frontend</url>
             </restore_cart>

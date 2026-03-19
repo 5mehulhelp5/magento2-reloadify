@@ -16,6 +16,7 @@ use Magento\GroupedProduct\Model\ResourceModel\Product\Link;
 use Magento\Sales\Model\ResourceModel\Order\Collection;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Sales\Model\Order as OrderModel;
+use Magmodules\Reloadify\Api\Config\RepositoryInterface as ConfigRepository;
 
 /**
  * Order web API service class
@@ -54,6 +55,25 @@ class Order
      * @var ResourceConnection
      */
     private $resourceConnection;
+    /**
+     * @var ConfigRepository
+     */
+    private $configRepository;
+
+    /**
+     * Mapping from canonical excluded field names to Order-specific keys
+     */
+    private const EXCLUDED_FIELD_MAP = [
+        'telephone' => ['telephone'],
+        'street' => ['street'],
+        'city' => ['city'],
+        'zipcode' => ['postcode'],
+        'province' => ['region', 'region_id'],
+        'country_code' => ['country_id'],
+        'company_name' => ['company'],
+        'gender' => ['gender'],
+        'birthdate' => ['dob']
+    ];
 
     /**
      * Order constructor.
@@ -61,17 +81,20 @@ class Order
      * @param CustomerRepository $customerRepository
      * @param CollectionProcessorInterface $collectionProcessor
      * @param ResourceConnection $resourceConnection
+     * @param ConfigRepository $configRepository
      */
     public function __construct(
         CollectionFactory $orderCollectionFactory,
         CustomerRepository $customerRepository,
         CollectionProcessorInterface $collectionProcessor,
-        ResourceConnection $resourceConnection
+        ResourceConnection $resourceConnection,
+        ConfigRepository $configRepository
     ) {
         $this->orderCollectionFactory = $orderCollectionFactory;
         $this->customerRepository = $customerRepository;
         $this->collectionProcessor = $collectionProcessor;
         $this->resourceConnection = $resourceConnection;
+        $this->configRepository = $configRepository;
     }
 
     /**
@@ -83,6 +106,8 @@ class Order
     {
         $data = [];
         $collection = $this->getCollection($storeId, $extra, $searchCriteria);
+        $excludedFields = $this->configRepository->getExcludedCustomerFields($storeId);
+        $excludedOrderKeys = $this->getExcludedOrderKeys($excludedFields);
 
         /** @var OrderModel $order */
         foreach ($collection as $order) {
@@ -94,7 +119,7 @@ class Order
                 "paid" => ($order->getTotalPaid() == $order->getGrandTotal()),
                 "status" => $order->getStatus(),
                 "has_an_account" => (bool)$order->getCustomerId(),
-                "profile" => $this->getProfileData($order),
+                "profile" => $this->getProfileData($order, $excludedOrderKeys),
                 "products" => $this->getProducts($order),
                 "deliver_date" => $this->getDelivery($order),
                 "ordered_at" => $order->getCreatedAt(),
@@ -108,6 +133,7 @@ class Order
                     $shipData['quote_address_id'],
                     $shipData['customer_address_id']
                 );
+                $shipData = $this->removeExcludedKeys($shipData, $excludedOrderKeys);
                 $orderData['shipping_address'] = array_filter($shipData, function ($value) {
                     return !is_null($value);
                 });
@@ -119,6 +145,7 @@ class Order
                     $billData['quote_address_id'],
                     $billData['customer_address_id']
                 );
+                $billData = $this->removeExcludedKeys($billData, $excludedOrderKeys);
                 $orderData['billing_address'] = array_filter($billData, function ($value) {
                     return !is_null($value);
                 });
@@ -157,11 +184,12 @@ class Order
     }
 
     /**
-     * @param $order
+     * @param OrderModel $order
+     * @param array $excludedKeys
      *
      * @return array|null
      */
-    private function getProfileData(OrderModel $order): ?array
+    private function getProfileData(OrderModel $order, array $excludedKeys = []): ?array
     {
         try {
             if ($order->getCustomerId()) {
@@ -188,11 +216,44 @@ class Order
                     $data['country_id'] = $shipAddress->getCountryId();
                     $data['company'] = $shipAddress->getCompany();
                 }
+                $data = $this->removeExcludedKeys($data, $excludedKeys);
                 return $data;
             }
         } catch (\Exception $exception) {
             return null;
         }
+    }
+
+    /**
+     * Get the list of Order-specific keys to exclude based on canonical field names
+     *
+     * @param array $excludedFields
+     * @return array
+     */
+    private function getExcludedOrderKeys(array $excludedFields): array
+    {
+        $keys = [];
+        foreach ($excludedFields as $field) {
+            if (isset(self::EXCLUDED_FIELD_MAP[$field])) {
+                $keys = array_merge($keys, self::EXCLUDED_FIELD_MAP[$field]);
+            }
+        }
+        return $keys;
+    }
+
+    /**
+     * Remove excluded keys from data array
+     *
+     * @param array $data
+     * @param array $excludedKeys
+     * @return array
+     */
+    private function removeExcludedKeys(array $data, array $excludedKeys): array
+    {
+        foreach ($excludedKeys as $key) {
+            unset($data[$key]);
+        }
+        return $data;
     }
 
     /**
