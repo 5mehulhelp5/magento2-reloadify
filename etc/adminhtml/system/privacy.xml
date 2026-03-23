@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Magmodules.eu. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<include xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_include.xsd">
+    <group id="privacy" translate="label" type="text" sortOrder="15" showInDefault="1" showInWebsite="1"
+           showInStore="1">
+        <label>Privacy (GDPR)</label>
+        <field id="exclude_customer_fields" translate="label comment" type="multiselect" sortOrder="10"
+               showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+            <label>Exclude Customer Fields from Sync</label>
+            <source_model>Magmodules\Reloadify\Model\Config\Source\CustomerFields</source_model>
+            <backend_model>Magmodules\Reloadify\Model\Config\Backend\Multiselect</backend_model>
+            <config_path>magmodules_reloadify/privacy/exclude_customer_fields</config_path>
+            <comment>Select the customer fields that should NOT be sent to Reloadify. This applies to profiles, orders, and cart data.</comment>
+        </field>
+    </group>
+</include>

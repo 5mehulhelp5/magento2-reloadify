@@ -250,7 +250,8 @@ class Variants
      */
     private function getMainImage($product)
     {
-        if ($image = $product->getData($this->configRepository->getImageVariant((int)$product->getStoreId()))) {
+        $image = $product->getData($this->configRepository->getImageVariant((int)$product->getStoreId()));
+        if ($image && $image != 'no_selection') {
             return $this->getMediaBaseUrl($product->getStoreId())
                 . 'catalog/product'
                 . $this->normalizeImagePath($image);

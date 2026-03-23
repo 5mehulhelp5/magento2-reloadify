@@ -370,4 +370,16 @@ class Repository implements ConfigRepositoryInterface
     {
         return $this->storeManager->getStore($storeId)->getBaseUrl();
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function getExcludedCustomerFields(?int $storeId = null): array
+    {
+        $value = $this->getStoreValue(self::XML_PATH_EXCLUDE_CUSTOMER_FIELDS, $storeId);
+        if (empty($value)) {
+            return [];
+        }
+        return explode(',', $value);
+    }
 }

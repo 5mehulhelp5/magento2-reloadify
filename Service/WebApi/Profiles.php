@@ -17,6 +17,7 @@ use Magento\Framework\Api\SearchCriteriaInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Newsletter\Model\Subscriber;
 use Magento\Store\Model\StoreManagerInterface;
+use Magmodules\Reloadify\Api\Config\RepositoryInterface as ConfigRepository;
 use Magmodules\Reloadify\Api\Log\RepositoryInterface as LogRepository;
 use Magento\Customer\Model\ResourceModel\Group\CollectionFactory as GroupCollectionFactory;
 
@@ -71,6 +72,10 @@ class Profiles
      */
     private $attributeRepository;
     /**
+     * @var ConfigRepository
+     */
+    private $configRepository;
+    /**
      * @var array
      */
     private $attributeSourceMap = [];
@@ -97,7 +102,8 @@ class Profiles
         AddressRepository $addressRepository,
         LogRepository $logRepository,
         GroupCollectionFactory $groupCollectionFactory,
-        AttributeRepositoryInterface $attributeRepository
+        AttributeRepositoryInterface $attributeRepository,
+        ConfigRepository $configRepository
     ) {
         $this->subscriber = $subscriber;
         $this->storeManager = $storeManager;
@@ -108,6 +114,7 @@ class Profiles
         $this->logRepository = $logRepository;
         $this->groupCollectionFactory = $groupCollectionFactory;
         $this->attributeRepository = $attributeRepository;
+        $this->configRepository = $configRepository;
     }
 
     /**
@@ -122,6 +129,7 @@ class Profiles
         $data = [];
         $customers = $this->getCustomers($storeId, $extra, $searchCriteria);
         $customerGroups = $this->getCustomersGroups();
+        $excludedFields = $this->configRepository->getExcludedCustomerFields($storeId);
         foreach ($customers as $customer) {
             $mainData = [
                 "id" => $customer->getId(),
@@ -164,7 +172,7 @@ class Profiles
                 }
             }
 
-            $data[] = $mainData;
+            $data[] = $this->removeExcludedFields($mainData, $excludedFields);
         }
 
         return $data;
@@ -254,6 +262,21 @@ class Profiles
             $customerGroups[$group->getId()] = $group->getCustomerGroupCode();
         }
         return $customerGroups;
+    }
+
+    /**
+     * Remove excluded fields from profile data
+     *
+     * @param array $data
+     * @param array $excludedFields
+     * @return array
+     */
+    private function removeExcludedFields(array $data, array $excludedFields): array
+    {
+        foreach ($excludedFields as $field) {
+            unset($data[$field]);
+        }
+        return $data;
     }
 
     /**

@@ -33,6 +33,8 @@ interface RepositoryInterface
     public const XPATH_EXTRA_FIELDS = '%s/attributes/extra_fields';
     public const XML_PATH_IMAGE_VARIANT = '%s/attributes/image';
 
+    public const XML_PATH_EXCLUDE_CUSTOMER_FIELDS = '%s/privacy/exclude_customer_fields';
+
     public const PWA_BASE_URL = '%s/pwa/base_url';
     public const PWA_CUSTOM_URL = '%s/pwa/custom_url';
 
@@ -200,4 +202,12 @@ interface RepositoryInterface
      * @return string
      */
     public function isAddStoreCodeToUrl(?int $storeId = null): string;
+
+    /**
+     * Get list of customer fields to exclude from sync
+     *
+     * @param int|null $storeId
+     * @return array
+     */
+    public function getExcludedCustomerFields(?int $storeId = null): array;
 }
