@@ -118,6 +118,10 @@ class Order
                 "price" => $order->getGrandTotal(),
                 "paid" => ($order->getTotalPaid() == $order->getGrandTotal()),
                 "status" => $order->getStatus(),
+                "total_refunded" => (float)$order->getTotalRefunded(),
+                "refunded_at" => $this->getRefundedAt($order),
+                "coupon_code" => $order->getCouponCode(),
+                "discount_amount" => round((float)$order->getDiscountAmount(), 2),
                 "has_an_account" => (bool)$order->getCustomerId(),
                 "profile" => $this->getProfileData($order, $excludedOrderKeys),
                 "products" => $this->getProducts($order),
@@ -269,11 +273,21 @@ class Order
                 continue;
             }
 
+            $isBundleChild = $item->getProductType() == Type::TYPE_SIMPLE
+                && $item->getParentItem()
+                && $item->getParentItem()->getProductType() == Type::TYPE_BUNDLE;
+
             $orderedProduct = [
                 'id' => $item->getProductId(),
                 'product_type' => $item->getProductType(),
                 'quantity' => $item->getQtyOrdered(),
             ];
+
+            if (!$isBundleChild) {
+                $orderedProduct['quantity_refunded'] = (float)$item->getQtyRefunded();
+                $orderedProduct['quantity_returned'] = (float)$item->getQtyReturned();
+                $orderedProduct['total_refunded'] = (float)$item->getAmountRefunded();
+            }
 
             if ($item->getProductType() == 'configurable') {
                 $child = $item->getChildrenItems();
@@ -284,9 +298,7 @@ class Order
             }
 
             // If it is a simple product associated with a bundle, get the parent bundle product ID
-            if ($item->getProductType() == Type::TYPE_SIMPLE &&
-                $item->getParentItem() &&
-                $item->getParentItem()->getProductType() == Type::TYPE_BUNDLE) {
+            if ($isBundleChild) {
                 $orderedProduct['parent_id'] = $item->getParentItem()->getProductId();
             }
 
@@ -323,6 +335,27 @@ class Order
             return (string)$shipment->getCreatedAt();
         }
         return '';
+    }
+
+    /**
+     * Earliest credit memo created_at, or null when no credit memo exists.
+     *
+     * @param OrderModel $order
+     * @return string|null
+     */
+    private function getRefundedAt(OrderModel $order): ?string
+    {
+        $earliest = null;
+        foreach ($order->getCreditmemosCollection() as $creditmemo) {
+            $createdAt = $creditmemo->getCreatedAt();
+            if ($createdAt === null) {
+                continue;
+            }
+            if ($earliest === null || strcmp($createdAt, $earliest) < 0) {
+                $earliest = $createdAt;
+            }
+        }
+        return $earliest;
     }
 
     /**
