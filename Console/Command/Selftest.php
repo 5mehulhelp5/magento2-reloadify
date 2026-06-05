@@ -7,22 +7,16 @@ declare(strict_types=1);
 
 namespace Magmodules\Reloadify\Console\Command;
 
+use Magento\Framework\Console\Cli;
+use Magmodules\Reloadify\Api\Config\RepositoryInterface as ConfigRepository;
 use Magmodules\Reloadify\Api\Selftest\RepositoryInterface as SelftestRepository;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-/**
- * Class Selftest
- *
- * Perform tests on module
- */
 class Selftest extends Command
 {
 
-    /**
-     * Command call name
-     */
     public const COMMAND_NAME = 'reloadify:selftest';
 
     /**
@@ -31,32 +25,33 @@ class Selftest extends Command
     private $selftestRepository;
 
     /**
-     * Selftest constructor.
-     *
-     * @param SelftestRepository $selftestRepository
+     * @var ConfigRepository
      */
+    private $configRepository;
+
     public function __construct(
-        SelftestRepository $selftestRepository
+        SelftestRepository $selftestRepository,
+        ConfigRepository $configRepository
     ) {
         $this->selftestRepository = $selftestRepository;
+        $this->configRepository = $configRepository;
         parent::__construct();
     }
 
-    /**
-     *  {@inheritdoc}
-     */
-    public function configure()
+    protected function configure(): void
     {
         $this->setName(self::COMMAND_NAME);
         $this->setDescription('Perform self test of extension');
         parent::configure();
     }
 
-    /**
-     *  {@inheritdoc}
-     */
-    public function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if (!$this->configRepository->isEnabled()) {
+            $output->writeln('<error>Module is not enabled.</error>');
+            return Cli::RETURN_FAILURE;
+        }
+
         $result = $this->selftestRepository->test();
         foreach ($result as $test) {
             if ($test['result_code'] == 'success') {
@@ -79,6 +74,6 @@ class Selftest extends Command
                 );
             }
         }
-        return 0;
+        return Cli::RETURN_SUCCESS;
     }
 }

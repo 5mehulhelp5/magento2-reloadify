@@ -63,6 +63,12 @@
     <type name="Magmodules\Reloadify\Console\Command\Selftest">
         <arguments>
             <argument name="selftestRepository" xsi:type="object">Magmodules\Reloadify\Api\Selftest\RepositoryInterface\Proxy</argument>
+            <argument name="configRepository" xsi:type="object">Magmodules\Reloadify\Api\Config\RepositoryInterface\Proxy</argument>
+        </arguments>
+    </type>
+    <type name="Magmodules\Reloadify\Console\Command\Integration">
+        <arguments>
+            <argument name="configRepository" xsi:type="object">Magmodules\Reloadify\Api\Config\RepositoryInterface\Proxy</argument>
         </arguments>
     </type>
 
