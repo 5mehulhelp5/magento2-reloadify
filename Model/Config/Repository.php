@@ -10,6 +10,8 @@ namespace Magmodules\Reloadify\Model\Config;
 use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Component\ComponentRegistrarInterface;
+use Magento\Framework\Filesystem\Driver\File as FileDriver;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\ScopeInterface;
@@ -44,22 +46,34 @@ class Repository implements ConfigRepositoryInterface
     private $serializer;
 
     /**
-     * Repository constructor.
-     *
-     * @param StoreManagerInterface $storeManager
-     * @param ScopeConfigInterface $scopeConfig
-     * @param ProductMetadataInterface $metadata
+     * @var ComponentRegistrarInterface
      */
+    private $componentRegistrar;
+
+    /**
+     * @var FileDriver
+     */
+    private $fileDriver;
+
+    /**
+     * @var array|null
+     */
+    private ?array $composerData = null;
+
     public function __construct(
         StoreManagerInterface $storeManager,
         ScopeConfigInterface $scopeConfig,
         ProductMetadataInterface $metadata,
-        Json $serializer
+        Json $serializer,
+        ComponentRegistrarInterface $componentRegistrar,
+        FileDriver $fileDriver
     ) {
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
         $this->metadata = $metadata;
         $this->serializer = $serializer;
+        $this->componentRegistrar = $componentRegistrar;
+        $this->fileDriver = $fileDriver;
     }
 
     /**
@@ -67,7 +81,7 @@ class Repository implements ConfigRepositoryInterface
      */
     public function getExtensionVersion(): string
     {
-        return $this->getStoreValue(self::XML_PATH_EXTENSION_VERSION);
+        return 'v' . (string)($this->getComposerData()['version'] ?? '0.0.0');
     }
 
     /**
@@ -167,10 +181,8 @@ class Repository implements ConfigRepositoryInterface
      */
     public function getSupportLink(): string
     {
-        return sprintf(
-            self::MODULE_SUPPORT_LINK,
-            $this->getExtensionCode()
-        );
+        $links = $this->getComposerData()['extra']['magmodules']['links']['docs'] ?? [];
+        return (string)($links['en'] ?? '');
     }
 
     /**
@@ -381,5 +393,37 @@ class Repository implements ConfigRepositoryInterface
             return [];
         }
         return explode(',', $value);
+    }
+
+    /**
+     * Read and cache composer.json data for this module.
+     *
+     * @return array
+     */
+    private function getComposerData(): array
+    {
+        if ($this->composerData !== null) {
+            return $this->composerData;
+        }
+
+        $this->composerData = [];
+
+        $path = $this->componentRegistrar->getPath('module', ConfigRepositoryInterface::EXTENSION_CODE);
+        if (!$path) {
+            return $this->composerData;
+        }
+
+        try {
+            $filePath = $path . '/composer.json';
+            if ($this->fileDriver->isExists($filePath)) {
+                $this->composerData = $this->serializer->unserialize(
+                    $this->fileDriver->fileGetContents($filePath)
+                );
+            }
+        } catch (\Throwable $e) {
+            $this->composerData = [];
+        }
+
+        return $this->composerData;
     }
 }
